@@ -1,23 +1,54 @@
+import { db } from '../db';
+import { maintenanceRecordsTable, assetsTable } from '../db/schema';
 import { type CreateMaintenanceRecordInput, type MaintenanceRecord } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function createMaintenanceRecord(input: CreateMaintenanceRecordInput, creatorId: number): Promise<MaintenanceRecord> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating maintenance schedules and records for assets.
-    // Should automatically set asset status to 'under_repair' when maintenance is scheduled.
-    // Used by admin/petugas_sarpras to track preventive and corrective maintenance.
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+export const createMaintenanceRecord = async (input: CreateMaintenanceRecordInput, creatorId: number): Promise<MaintenanceRecord> => {
+  try {
+    // Verify the asset exists before creating maintenance record
+    const existingAsset = await db.select()
+      .from(assetsTable)
+      .where(eq(assetsTable.id, input.asset_id))
+      .execute();
+
+    if (existingAsset.length === 0) {
+      throw new Error(`Asset with id ${input.asset_id} not found`);
+    }
+
+    // Insert the maintenance record
+    const result = await db.insert(maintenanceRecordsTable)
+      .values({
         asset_id: input.asset_id,
         maintenance_type: input.maintenance_type,
         description: input.description,
         scheduled_date: input.scheduled_date,
-        completed_date: null,
-        status: 'scheduled',
-        cost: input.cost,
+        cost: input.cost ? input.cost.toString() : null, // Convert number to string for numeric column
         performed_by: input.performed_by,
         notes: input.notes,
         created_by: creatorId,
-        created_at: new Date(),
+        status: 'scheduled' // Default status
+      })
+      .returning()
+      .execute();
+
+    const maintenanceRecord = result[0];
+
+    // Update asset status to 'under_repair' when maintenance is scheduled
+    await db.update(assetsTable)
+      .set({ 
+        status: 'under_repair',
         updated_at: new Date()
-    } as MaintenanceRecord);
-}
+      })
+      .where(eq(assetsTable.id, input.asset_id))
+      .execute();
+
+    // Convert numeric fields back to numbers before returning
+    return {
+      ...maintenanceRecord,
+      cost: maintenanceRecord.cost ? parseFloat(maintenanceRecord.cost) : null
+    };
+  } catch (error) {
+    console.error('Maintenance record creation failed:', error);
+    throw error;
+  }
+};

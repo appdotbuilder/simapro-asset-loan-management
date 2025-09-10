@@ -1,14 +1,21 @@
+import { db } from '../db';
+import { locationsTable } from '../db/schema';
 import { type CreateLocationInput, type Location } from '../schema';
 
-export async function createLocation(input: CreateLocationInput): Promise<Location> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating new storage locations for asset management.
-    // Should validate admin permissions and unique location names.
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+export const createLocation = async (input: CreateLocationInput): Promise<Location> => {
+  try {
+    // Insert location record
+    const result = await db.insert(locationsTable)
+      .values({
         name: input.name,
-        description: input.description,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Location);
-}
+        description: input.description
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Location creation failed:', error);
+    throw error;
+  }
+};

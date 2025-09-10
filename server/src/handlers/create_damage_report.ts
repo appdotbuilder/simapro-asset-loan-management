@@ -1,23 +1,48 @@
+import { db } from '../db';
+import { damageReportsTable, assetsTable } from '../db/schema';
 import { type CreateDamageReportInput, type DamageReport } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function createDamageReport(input: CreateDamageReportInput, reporterId: number): Promise<DamageReport> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating damage reports for assets.
-    // Should automatically update asset status to 'damaged' or 'under_repair' based on severity.
-    // Can be reported by users (for borrowed items) or petugas_sarpras (during inspection).
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+export const createDamageReport = async (input: CreateDamageReportInput, reporterId: number): Promise<DamageReport> => {
+  try {
+    // Verify that the asset exists
+    const asset = await db.select()
+      .from(assetsTable)
+      .where(eq(assetsTable.id, input.asset_id))
+      .execute();
+
+    if (asset.length === 0) {
+      throw new Error('Asset not found');
+    }
+
+    // Create the damage report
+    const result = await db.insert(damageReportsTable)
+      .values({
         asset_id: input.asset_id,
         reported_by: reporterId,
         loan_request_id: input.loan_request_id,
         description: input.description,
         photos: input.photos,
-        severity: input.severity,
-        is_resolved: false,
-        resolution_notes: null,
-        resolved_by: null,
-        resolved_at: null,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as DamageReport);
-}
+        severity: input.severity
+      })
+      .returning()
+      .execute();
+
+    const damageReport = result[0];
+
+    // Update asset status based on severity
+    // Critical and major damage -> damaged status
+    // Minor damage -> under_repair status
+    const newAssetStatus = input.severity === 'minor' ? 'under_repair' : 'damaged';
+
+    await db.update(assetsTable)
+      .set({ status: newAssetStatus })
+      .where(eq(assetsTable.id, input.asset_id))
+      .execute();
+
+    return damageReport;
+  } catch (error) {
+    console.error('Damage report creation failed:', error);
+    throw error;
+  }
+};

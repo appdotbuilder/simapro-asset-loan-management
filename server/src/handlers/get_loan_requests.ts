@@ -1,9 +1,25 @@
+import { db } from '../db';
+import { loanRequestsTable } from '../db/schema';
 import { type LoanRequest } from '../schema';
 
-export async function getLoanRequests(): Promise<LoanRequest[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all loan requests for admin/petugas_sarpras review.
-    // Should include user and asset details for proper request evaluation.
-    // Should support filtering by status and date ranges.
-    return Promise.resolve([]);
-}
+export const getLoanRequests = async (): Promise<LoanRequest[]> => {
+  try {
+    const results = await db.select()
+      .from(loanRequestsTable)
+      .execute();
+
+    return results.map(result => ({
+      ...result,
+      borrow_date: new Date(result.borrow_date),
+      return_date: new Date(result.return_date),
+      approved_at: result.approved_at ? new Date(result.approved_at) : null,
+      handover_date: result.handover_date ? new Date(result.handover_date) : null,
+      actual_return_date: result.actual_return_date ? new Date(result.actual_return_date) : null,
+      created_at: new Date(result.created_at),
+      updated_at: new Date(result.updated_at)
+    }));
+  } catch (error) {
+    console.error('Fetching loan requests failed:', error);
+    throw error;
+  }
+};

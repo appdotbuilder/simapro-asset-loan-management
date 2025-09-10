@@ -1,20 +1,56 @@
+import { db } from '../db';
+import { assetsTable, loanRequestsTable } from '../db/schema';
 import { type DashboardStats } from '../schema';
+import { eq, and, count, sql } from 'drizzle-orm';
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to fetch dashboard statistics including:
-    // - Total assets count
-    // - Available assets count  
-    // - Currently borrowed assets count
-    // - Pending loan requests count
-    // - Assets under repair count
-    // - Damaged assets count
-    return Promise.resolve({
-        total_assets: 0,
-        available_assets: 0,
-        borrowed_assets: 0,
-        pending_requests: 0,
-        assets_under_repair: 0,
-        damaged_assets: 0
-    } as DashboardStats);
-}
+export const getDashboardStats = async (): Promise<DashboardStats> => {
+  try {
+    // Get total assets count (excluding deleted assets)
+    const totalAssetsResult = await db.select({ count: count() })
+      .from(assetsTable)
+      .where(sql`${assetsTable.status} != 'deleted'`)
+      .execute();
+
+    // Get available assets count
+    const availableAssetsResult = await db.select({ count: count() })
+      .from(assetsTable)
+      .where(eq(assetsTable.status, 'available'))
+      .execute();
+
+    // Get borrowed assets count
+    const borrowedAssetsResult = await db.select({ count: count() })
+      .from(assetsTable)
+      .where(eq(assetsTable.status, 'borrowed'))
+      .execute();
+
+    // Get pending loan requests count
+    const pendingRequestsResult = await db.select({ count: count() })
+      .from(loanRequestsTable)
+      .where(eq(loanRequestsTable.status, 'pending_approval'))
+      .execute();
+
+    // Get assets under repair count
+    const underRepairAssetsResult = await db.select({ count: count() })
+      .from(assetsTable)
+      .where(eq(assetsTable.status, 'under_repair'))
+      .execute();
+
+    // Get damaged assets count
+    const damagedAssetsResult = await db.select({ count: count() })
+      .from(assetsTable)
+      .where(eq(assetsTable.status, 'damaged'))
+      .execute();
+
+    return {
+      total_assets: totalAssetsResult[0].count,
+      available_assets: availableAssetsResult[0].count,
+      borrowed_assets: borrowedAssetsResult[0].count,
+      pending_requests: pendingRequestsResult[0].count,
+      assets_under_repair: underRepairAssetsResult[0].count,
+      damaged_assets: damagedAssetsResult[0].count
+    };
+  } catch (error) {
+    console.error('Dashboard stats retrieval failed:', error);
+    throw error;
+  }
+};

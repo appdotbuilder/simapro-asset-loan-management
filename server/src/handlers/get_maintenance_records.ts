@@ -1,9 +1,20 @@
+import { db } from '../db';
+import { maintenanceRecordsTable } from '../db/schema';
 import { type MaintenanceRecord } from '../schema';
 
-export async function getMaintenanceRecords(): Promise<MaintenanceRecord[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all maintenance records for tracking and reporting.
-    // Should include asset details and support filtering by status, type, and date ranges.
-    // Used for maintenance cost tracking and scheduling oversight.
-    return Promise.resolve([]);
-}
+export const getMaintenanceRecords = async (): Promise<MaintenanceRecord[]> => {
+  try {
+    const results = await db.select()
+      .from(maintenanceRecordsTable)
+      .execute();
+
+    // Convert numeric fields back to numbers for maintenance records
+    return results.map(record => ({
+      ...record,
+      cost: record.cost ? parseFloat(record.cost) : null
+    }));
+  } catch (error) {
+    console.error('Failed to fetch maintenance records:', error);
+    throw error;
+  }
+};

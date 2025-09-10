@@ -1,8 +1,18 @@
+import { db } from '../db';
+import { categoriesTable } from '../db/schema';
 import { type Category } from '../schema';
 
-export async function getCategories(): Promise<Category[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all asset categories from the database.
-    // Used for dropdown selections in asset management and filtering in catalog.
-    return Promise.resolve([]);
-}
+export const getCategories = async (): Promise<Category[]> => {
+  try {
+    // Fetch all categories from the database
+    const result = await db.select()
+      .from(categoriesTable)
+      .execute();
+
+    // Return the categories as-is since all fields are already in the correct format
+    return result;
+  } catch (error) {
+    console.error('Failed to fetch categories:', error);
+    throw error;
+  }
+};
